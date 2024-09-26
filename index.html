@@ -5,12 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pokemon Chess</title>
     <link rel="stylesheet" href="styles/style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://threejs.org/examples/js/loaders/STLLoader.js"></script>
+    <script type="module">
+        import * as THREE from './build/three.module.js';
+        import { STLLoader } from './examples/jsm/loaders/STLLoader.js';
+
+        // Set up scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('chessboard').appendChild(renderer.domElement);
+
+        // Add lighting
+        const ambientLight = new THREE.AmbientLight(0x404040); // Soft white light
+        scene.add(ambientLight);
+        const pointLight = new THREE.PointLight(0xffffff, 1, 100); // White point light
+        pointLight.position.set(5, 5, 5); // Adjust position as needed
+        scene.add(pointLight);
+
+        // Create a new instance of STLLoader
+        const loader = new STLLoader();
+
+        // Load STL files
+        const models = [
+            { file: 'assets/Bulbasaur_Bishop.stl', position: { x: -2, y: 0, z: 0 } },
+            { file: 'assets/Charmander_Knight.stl', position: { x: -1, y: 0, z: 0 } },
+            { file: 'assets/Mew_Queen.stl', position: { x: 0, y: 0, z: 0 } },
+            { file: 'assets/Mewtwo_King.stl', position: { x: 1, y: 0, z: 0 } },
+            { file: 'assets/Pokeball_Pawn.stl', position: { x: 2, y: 0, z: 0 } },
+            { file: 'assets/Squirtle_Rook.stl', position: { x: 3, y: 0, z: 0 } },
+        ];
+
+        // Function to load models
+        models.forEach(model => {
+            loader.load(model.file, geometry => {
+                const material = new THREE.MeshNormalMaterial();
+                const mesh = new THREE.Mesh(geometry, material);
+                scene.add(mesh);
+                mesh.rotation.x = -Math.PI / 2; // Adjust rotation if needed
+                mesh.position.set(model.position.x, model.position.y, model.position.z); // Set position
+            }, undefined, error => {
+                console.error(`Error loading ${model.file}:`, error); // Log any errors
+            });
+        });
+
+        // Camera setup
+        camera.position.z = 5;
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
 </head>
 <body>
     <h1>Welcome to Pokemon Chess!</h1>
-    <div id="chessboard"></div>
-    <script src="src/app.js"></script>
+    <div id="chessboard" style="width: 100%; height: 100vh;"></div>
 </body>
 </html>
