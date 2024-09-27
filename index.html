@@ -14,43 +14,133 @@
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer();
         renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById('chessboard').appendChild(renderer.domElement);
+        document.body.appendChild(renderer.domElement);
 
         // Add lighting
         const ambientLight = new THREE.AmbientLight(0x404040); // Soft white light
         scene.add(ambientLight);
         const pointLight = new THREE.PointLight(0xffffff, 1, 100); // White point light
-        pointLight.position.set(5, 5, 5); // Adjust position as needed
+        pointLight.position.set(5, 5, 5);
         scene.add(pointLight);
 
-        // Create a new instance of STLLoader
+        // Load STL files and place them on the board
         const loader = new STLLoader();
 
-        // Load STL files
-        const models = [
-            { file: 'assets/Bulbasaur_Bishop.stl', position: { x: -2, y: 0, z: 0 } },
-            { file: 'assets/Charmander_Knight.stl', position: { x: -1, y: 0, z: 0 } },
-            { file: 'assets/Mew_Queen.stl', position: { x: 0, y: 0, z: 0 } },
-            { file: 'assets/Mewtwo_King.stl', position: { x: 1, y: 0, z: 0 } },
-            { file: 'assets/Pokeball_Pawn.stl', position: { x: 2, y: 0, z: 0 } },
-            { file: 'assets/Squirtle_Rook.stl', position: { x: 3, y: 0, z: 0 } },
+        // Define chessboard size and grid
+        const boardSize = 8; // 8x8 grid for chessboard
+        const squareSize = 1; // Each square is 1x1 in 3D units
+        const board = [];
+        const pieces = [];
+
+        // Create chessboard grid
+        for (let x = 0; x < boardSize; x++) {
+            for (let z = 0; z < boardSize; z++) {
+                const geometry = new THREE.PlaneGeometry(squareSize, squareSize);
+                const material = new THREE.MeshBasicMaterial({ color: (x + z) % 2 === 0 ? 0xffffff : 0x000000 });
+                const square = new THREE.Mesh(geometry, material);
+                square.position.set(x - boardSize / 2, -0.5, z - boardSize / 2);
+                square.rotation.x = -Math.PI / 2;
+                scene.add(square);
+                board.push(square);
+            }
+        }
+
+        // Define pieces and their starting positions
+        const pieceData = [
+            { file: 'assets/Bulbasaur_Bishop.stl', type: 'bishop', position: { x: -2, y: 0, z: 0 } },
+            { file: 'assets/Charmander_Knight.stl', type: 'knight', position: { x: -1, y: 0, z: 0 } },
+            { file: 'assets/Mew_Queen.stl', type: 'queen', position: { x: 0, y: 0, z: 0 } },
+            { file: 'assets/Mewtwo_King.stl', type: 'king', position: { x: 1, y: 0, z: 0 } },
+            { file: 'assets/Pokeball_Pawn.stl', type: 'pawn', position: { x: 2, y: 0, z: 0 } },
+            { file: 'assets/Squirtle_Rook.stl', type: 'rook', position: { x: 3, y: 0, z: 0 } },
         ];
 
-        // Function to load models
-        models.forEach(model => {
+        // Function to load and position pieces
+        pieceData.forEach((model, index) => {
             loader.load(model.file, geometry => {
                 const material = new THREE.MeshNormalMaterial();
                 const mesh = new THREE.Mesh(geometry, material);
+
+                // Scale the piece to fit on the board
+                mesh.scale.set(0.1, 0.1, 0.1);
+
+                // Position the piece on the board
+                mesh.position.set(
+                    model.position.x * squareSize,
+                    model.position.y * squareSize,
+                    model.position.z * squareSize
+                );
+
+                mesh.userData = { type: model.type }; // Assign type for chess logic
                 scene.add(mesh);
-                mesh.rotation.x = -Math.PI / 2; // Adjust rotation if needed
-                mesh.position.set(model.position.x, model.position.y, model.position.z); // Set position
+                pieces.push(mesh);
             }, undefined, error => {
-                console.error(`Error loading ${model.file}:`, error); // Log any errors
+                console.error(`Error loading ${model.file}:`, error);
             });
         });
 
-        // Camera setup
-        camera.position.z = 5;
+        // Chess movement logic
+        function isMoveValid(piece, targetX, targetZ) {
+            const dx = Math.abs(piece.position.x - targetX);
+            const dz = Math.abs(piece.position.z - targetZ);
+            const type = piece.userData.type;
+
+            switch (type) {
+                case 'pawn':
+                    return dz === 1 && dx === 0; // Move one square forward
+                case 'rook':
+                    return dx === 0 || dz === 0; // Move horizontally or vertically
+                case 'knight':
+                    return (dx === 2 && dz === 1) || (dx === 1 && dz === 2); // "L" shape
+                case 'bishop':
+                    return dx === dz; // Move diagonally
+                case 'queen':
+                    return dx === dz || dx === 0 || dz === 0; // Move like rook + bishop
+                case 'king':
+                    return dx <= 1 && dz <= 1; // Move one square in any direction
+                default:
+                    return false;
+            }
+        }
+
+        // Add interactivity: Click to select and move pieces
+        let selectedPiece = null;
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        window.addEventListener('click', event => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(pieces);
+
+            if (intersects.length > 0) {
+                const piece = intersects[0].object;
+
+                if (selectedPiece === null) {
+                    // Select a piece
+                    selectedPiece = piece;
+                    console.log(`Selected piece: ${piece.userData.type}`);
+                } else {
+                    // Check if the move is valid
+                    const targetX = Math.round(intersects[0].point.x);
+                    const targetZ = Math.round(intersects[0].point.z);
+
+                    if (isMoveValid(selectedPiece, targetX, targetZ)) {
+                        // Move the selected piece to the new position
+                        selectedPiece.position.set(targetX, 0, targetZ);
+                    } else {
+                        console.log('Invalid move!');
+                    }
+
+                    selectedPiece = null; // Deselect after moving
+                }
+            }
+        });
+
+        // Set camera position
+        camera.position.z = 10;
 
         // Animation loop
         function animate() {
