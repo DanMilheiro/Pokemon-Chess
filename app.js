@@ -1,6 +1,8 @@
-import * as THREE from 'https://unpkg.com/three@0.132.2/build/three.module.js';
-import { STLLoader } from 'https://unpkg.com/three@0.132.2/examples/jsm/loaders/STLLoader.js';
+// Importing Three.js and necessary addons
+import * as THREE from 'three';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 
+// Setting up the scene, camera, and renderer
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -48,14 +50,15 @@ models.forEach(model => {
         const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.position.set(model.position.x, model.position.y, model.position.z);
-        mesh.scale.set(0.4, 0.4, 0.4); // Scale down the models to fit
+        mesh.scale.set(0.1, 0.1, 0.1); // Significantly scale down the models to fit
         scene.add(mesh);
         mesh.name = model.file.split('/').pop(); // Set name for interaction
     });
 });
 
 // Camera position
-camera.position.z = 5;
+camera.position.set(0, 10, 0); // Move the camera above the board
+camera.lookAt(0, 0, 0); // Point the camera at the center of the board
 
 // Raycasting for interaction
 const raycaster = new THREE.Raycaster();
